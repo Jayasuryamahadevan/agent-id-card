@@ -38,10 +38,18 @@ exists versus what's merely withheld.
 ## Repository layout
 
 - **[SPEC.md](SPEC.md)** — the normative specification. Read this first.
+- **[HARNESS_BOOTSTRAP.md](HARNESS_BOOTSTRAP.md)** — addressed directly
+  to an AI coding-agent harness (Claude Code, OpenCode, or similar): what
+  to do the first time you're invoked in a new environment — be curious
+  about your surroundings, generate your own card honestly, keep an
+  append-only hash-chained log of every action, know your own
+  limitations, then wait for instructions.
 - `agent_id_card/` — a Python reference implementation of the base chain
   (epoch / renewal / attestation / delegate / bundle / verify), with a
   CLI (`aic`). Convenient, tested, and NOT the source of truth — see
   SPEC.md §0 and §13.
+- `scripts/bootstrap_identity.py` — a runnable reference implementation
+  of HARNESS_BOOTSTRAP.md's discovery + identity-generation steps.
 - `tests/` — the reference implementation's test suite.
 
 ## Quick start (Python reference implementation)

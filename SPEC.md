@@ -334,6 +334,16 @@ and which agent-to-agent protocol(s) it speaks. Verification: check
 signature against `epoch.public_key`, then recompute and compare
 `capability_categories` as described above.
 
+An implementation MAY include an optional `known_limitations` field: an
+array of short, factual strings describing what this agent explicitly
+cannot do (no persistent memory across sessions, no network access, a
+bounded context window, sandbox restrictions, and similarly concrete
+constraints). It is additive and optional — its absence does not make an
+otherwise-valid `tier2_detail` object non-conformant — but an agent that
+knows its own limitations SHOULD state them here rather than nowhere.
+See HARNESS_BOOTSTRAP.md for a concrete procedure (aimed specifically at
+an AI coding-agent harness) that populates this field honestly.
+
 ### 5.3 Tier 3 — Sensitive (`tier3_sensitive`)
 
 ```json
@@ -577,7 +587,12 @@ or "malformed," since the correct response differs for each.
 ## 11. Bootstrap procedure for an autonomous agent (normative)
 
 Any agent implementing AIC MUST follow this procedure, regardless of
-implementation language:
+implementation language. See [HARNESS_BOOTSTRAP.md](HARNESS_BOOTSTRAP.md)
+for this same procedure written out concretely for the specific,
+common case of an AI coding-agent harness (Claude Code, OpenCode, or
+similar) bootstrapping itself inside a new workspace — including the
+environment-discovery checklist and the append-only action log this
+document's steps below only summarize.
 
 1. **On startup, check local persistent state for an existing epoch
    chain.**
