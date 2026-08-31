@@ -60,6 +60,12 @@ keywords (MUST, SHOULD, MAY) normatively.
 
 ## 2. Cryptographic primitives (implementation-agnostic)
 
+If you have no Python interpreter available at all (a pure-C++ ROS 2
+node, firmware, an embedded controller), see
+[NO_PYTHON.md](NO_PYTHON.md) for tested OpenSSL/Node.js/libsodium
+recipes and exact by-hand canonicalization rules before reading further
+-- everything below is implementable from any of those starting points.
+
 | Primitive | Choice | Notes |
 |---|---|---|
 | Signature algorithm | Ed25519 (RFC 8032) | 32-byte public key, 64-byte signature. Every mainstream language has a maintained implementation. |

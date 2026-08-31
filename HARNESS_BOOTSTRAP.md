@@ -122,15 +122,18 @@ python3 scripts/bootstrap_identity.py \
   --extra-packages "<comma-separated package names you want exact versions reported for>"
 ```
 
-If Python is not available to you at all: perform the signing yourself
-following SPEC.md §2.2 exactly, in whatever language you do have
-available (Ed25519 + RFC 8785 canonicalization — every mainstream
-language has both). If you have no way to produce a real Ed25519
-signature in this environment, you MUST NOT fabricate one — persist
-your discovered facts and an epoch object with `"signature": null` and
-a clearly-labeled `"unsigned": true` marker instead, and sign it for
-real the first time you do have the capability. An honestly-unsigned
-record is conformant with §2 above; a fabricated signature is not.
+If Python is not available to you at all -- a ROS 2 node with no
+`rclpy`, an embedded controller, anything with only a C/C++ toolchain or
+only `openssl`/Node.js on it -- see **[NO_PYTHON.md](NO_PYTHON.md)** for
+tested, copy-paste recipes (OpenSSL CLI, Node's built-in `crypto`,
+libsodium) and the exact byte-level canonicalization rules, proven to
+interoperate with this repository's own verifier. If you truly have no
+way to produce a real Ed25519 signature in this environment, you MUST
+NOT fabricate one — persist your discovered facts and an epoch object
+with `"signature": null` and a clearly-labeled `"unsigned": true` marker
+instead, and sign it for real the first time you do have the capability.
+An honestly-unsigned record is conformant with §2 above; a fabricated
+signature is not.
 
 ## 4. Keep an append-only, hash-chained action log — every movement
 
@@ -219,3 +222,38 @@ to the same action log rather than starting a new one. If your declared
 capabilities or purpose genuinely change, mint a `capability_update`
 epoch (SPEC.md §3.2) rather than silently drifting out of sync with what
 your own card claims about you.
+
+## 8. Experience: let the card learn what bootstrap could not know
+
+Bootstrap captures a snapshot. Most of what you actually cannot do, and
+some of what you actually can, is only discovered by operating -- a tool
+call that fails the same way every time, a capability you didn't
+realize you had until you used it successfully. Record this as it
+happens, not as an afterthought:
+
+- Discovered a capability you actually have that your card doesn't
+  declare? Record a `capability_discovered` experience entry
+  (`{"capability": "..."}`).
+- Lost access to something your card currently declares (a tool was
+  removed, a permission was revoked)? Record `capability_lost`.
+- Ran into a real, repeatable limitation your card doesn't yet disclose?
+  Record `limitation_discovered` (`{"limitation": "..."}`). If it later
+  stops applying, record `limitation_resolved`.
+
+Periodically (at minimum: at the end of every session, and any time you
+notice something that should change your card), reconcile: compare
+accumulated experience against your current Tier 2 content, and if
+anything has genuinely changed, mint a `capability_update` epoch that
+catches your card up to reality (`agent_id_card.harness.AgentHarness.
+reconcile(auto_apply=True)`, or `aic reconcile --apply` from the
+reference CLI). Reconciling is always safe to call speculatively (it
+only mints a new epoch if something actually changed) and never
+overwrites experience history -- a wrong entry is corrected by a later
+one, exactly like an `incident` attestation, never edited or deleted.
+
+If you were given an `AgentAdapter`-shaped view of what you can actually
+do right now (the reference harness's `capabilities()` protocol), let
+`reconcile()` diff that against your declared list automatically instead
+of only relying on manually-recorded experience -- capability drift then
+gets recorded and reconciled without anyone having to remember to do it
+by hand.

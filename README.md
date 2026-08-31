@@ -42,12 +42,32 @@ exists versus what's merely withheld.
   to an AI coding-agent harness (Claude Code, OpenCode, or similar): what
   to do the first time you're invoked in a new environment — be curious
   about your surroundings, generate your own card honestly, keep an
-  append-only hash-chained log of every action, know your own
-  limitations, then wait for instructions.
-- `agent_id_card/` — a Python reference implementation of the base chain
-  (epoch / renewal / attestation / delegate / bundle / verify), with a
-  CLI (`aic`). Convenient, tested, and NOT the source of truth — see
-  SPEC.md §0 and §13.
+  append-only hash-chained log of every action, learn from experience
+  and keep the card honest over time, know your own limitations, then
+  wait for instructions.
+- **[NO_PYTHON.md](NO_PYTHON.md)** — tested, copy-paste recipes (OpenSSL
+  CLI, Node's built-in `crypto`, libsodium) plus the exact manual
+  canonicalization rules, for a system with an AI on it but no Python
+  interpreter at all — a pure-C++ ROS 2 node, firmware, a minimal
+  container.
+- `agent_id_card/` — a Python reference implementation:
+  - `epoch.py`/`tiers.py` — the identity chain and its three disclosure
+    tiers; `renewal.py`/`attestation.py`/`delegate.py`/`bundle.py`/
+    `verify.py` — liveness, web-of-trust claims, scoped sub-identities,
+    and verification.
+  - `log.py` — a generic append-only, hash-chained JSON Lines log.
+  - `experience.py` — what an agent has learned about itself over time
+    (discovered/lost capabilities, discovered/resolved limitations).
+  - `harness.py` — `AgentHarness`: wraps any AI backend (via a
+    one-method `AgentAdapter.capabilities()` protocol) and ties identity,
+    the action log, and experience-driven reconciliation into one
+    runtime, so an ID card keeps matching reality instead of freezing at
+    whatever was true at bootstrap.
+  - `provenance.py` — honest runtime introspection (OS, hardware,
+    accelerator/driver, installed language runtimes and tool/library
+    versions) for Tier 3 content.
+  - `cli.py` (the `aic` command) — a thin wrapper over all of the above.
+  Convenient, tested, and NOT the source of truth — see SPEC.md §0/§13.
 - `scripts/bootstrap_identity.py` — a runnable reference implementation
   of HARNESS_BOOTSTRAP.md's discovery + identity-generation steps.
 - `tests/` — the reference implementation's test suite.
@@ -62,9 +82,26 @@ python3 -m unittest discover -s tests -v
 ```
 
 ```bash
-aic init --state-dir .aic --name my-agent --purpose "does X, reports Y" --capabilities "observe.,coordinate."
+aic init --state-dir .aic --name my-agent --purpose "does X, reports Y" \
+  --capabilities "observe.status.v1" --limitations "no persistent memory"
+aic log --state-dir .aic tool.invoked --detail '{"tool":"bash"}'
+aic experience record --state-dir .aic capability_discovered --content '{"capability":"observe.logs.v1"}'
+aic reconcile --state-dir .aic --apply   # mints a capability_update epoch if anything changed
 aic bundle --state-dir .aic --out bundle.json
 aic verify --bundle bundle.json
+```
+
+Or drive it as a library (e.g. to wrap a real AI backend via
+`AgentAdapter`):
+
+```python
+from agent_id_card import AgentHarness
+
+harness = AgentHarness(state_dir=".aic", adapter=my_adapter)
+if not harness.is_bootstrapped:
+    harness.bootstrap("my-agent", "does X, reports Y", my_adapter.capabilities())
+harness.ensure_live()
+report = harness.reconcile(auto_apply=True)  # diffs my_adapter.capabilities() against the card
 ```
 
 ## License
