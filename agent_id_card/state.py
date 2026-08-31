@@ -41,14 +41,21 @@ def load_json(path: Path, default: Any) -> Any:
 
 
 class AgentState:
-    """The four files that make up one agent's local state directory."""
+    """The on-disk files that make up one agent's local state directory:
+    identity (private key), the epoch chain, the latest Tier 2/3 content,
+    the latest renewal, received attestations, and (via `harness.py`) the
+    append-only action log and experience store."""
 
     def __init__(self, directory: Path) -> None:
         self.directory = directory
         self.identity_path = directory / "identity.json"
         self.chain_path = directory / "chain.json"
+        self.detail_path = directory / "detail.json"
+        self.sensitive_path = directory / "sensitive.json"
         self.renewal_path = directory / "renewal.json"
         self.attestations_path = directory / "attestations_received.json"
+        self.action_log_path = directory / "action_log.jsonl"
+        self.experience_path = directory / "experience.jsonl"
 
     @property
     def identity(self) -> AgentIdentity:
@@ -60,6 +67,20 @@ class AgentState:
 
     def save_chain(self, chain: list[dict[str, Any]]) -> None:
         save_json(chain, self.chain_path)
+
+    @property
+    def detail(self) -> dict[str, Any] | None:
+        return load_json(self.detail_path, None)
+
+    def save_detail(self, detail: dict[str, Any]) -> None:
+        save_json(detail, self.detail_path)
+
+    @property
+    def sensitive(self) -> dict[str, Any] | None:
+        return load_json(self.sensitive_path, None)
+
+    def save_sensitive(self, sensitive: dict[str, Any]) -> None:
+        save_json(sensitive, self.sensitive_path)
 
     @property
     def renewal(self) -> dict[str, Any] | None:
