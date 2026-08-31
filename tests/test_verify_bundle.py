@@ -7,6 +7,7 @@ from agent_id_card import (
     AgentIdentity,
     build_bundle,
     create_attestation,
+    create_detail,
     create_genesis_epoch,
     create_successor_epoch,
     renew,
@@ -18,7 +19,8 @@ from agent_id_card.timestamps import now
 class VerifyBundleTests(unittest.TestCase):
     def setUp(self) -> None:
         self.identity = AgentIdentity.generate()
-        self.genesis = create_genesis_epoch(self.identity, "alice", "demo", ["observe."])
+        self.detail = create_detail(self.identity.agent_id, 0, self.identity, ["observe."])
+        self.genesis = create_genesis_epoch(self.identity, "alice", "demo", self.detail)
 
     def test_happy_path_is_ok(self) -> None:
         renewal = renew(self.genesis, self.identity)
@@ -63,7 +65,8 @@ class VerifyBundleTests(unittest.TestCase):
     def test_epoch_scoped_attestation_is_matched_against_chain_history_not_just_the_tip(self) -> None:
         issuer = AgentIdentity.generate()
         endorsement = create_attestation(self.genesis["agent_id"], issuer, "endorsement", {"note": "epoch 0 audited"}, subject_epoch=self.genesis)
-        updated = create_successor_epoch(self.genesis, self.identity, "capability_update", declared_capabilities=["observe.", "coordinate."])
+        new_detail = create_detail(self.genesis["agent_id"], 1, self.identity, ["observe.", "coordinate."])
+        updated = create_successor_epoch(self.genesis, self.identity, "capability_update", new_detail)
         renewal = renew(updated, self.identity)
         bundle = build_bundle([self.genesis, updated], renewal=renewal, attestations=[endorsement])
         result = verify_bundle(bundle)
@@ -72,7 +75,9 @@ class VerifyBundleTests(unittest.TestCase):
         self.assertTrue(result.attestation_checks[0].valid)
 
     def test_invalid_chain_link_is_reported_and_fails(self) -> None:
-        decoy = create_genesis_epoch(AgentIdentity.generate(), "mallory", "demo", ["observe."])
+        decoy_identity = AgentIdentity.generate()
+        decoy_detail = create_detail(decoy_identity.agent_id, 0, decoy_identity, ["observe."])
+        decoy = create_genesis_epoch(decoy_identity, "mallory", "demo", decoy_detail)
         bundle = build_bundle([self.genesis, decoy])
         result = verify_bundle(bundle, require_live=False)
         self.assertFalse(result.ok)

@@ -22,6 +22,7 @@ from .delegate import verify_delegate
 from .epoch import verify_epoch
 from .errors import AICError
 from .renewal import verify_renewal
+from .tiers import verify_detail, verify_sensitive
 from .timestamps import now
 
 
@@ -47,6 +48,9 @@ class VerificationResult:
     current_epoch: dict[str, Any] | None
     live: bool | None
     revoked: bool
+    disclosed_tiers: list[int] = field(default_factory=lambda: [1])
+    detail_ok: bool | None = None
+    sensitive_ok: bool | None = None
     attestation_checks: list[AttestationCheck] = field(default_factory=list)
     delegate_ok: bool | None = None
     errors: list[str] = field(default_factory=list)
@@ -60,6 +64,9 @@ class VerificationResult:
             "current_epoch": self.current_epoch,
             "live": self.live,
             "revoked": self.revoked,
+            "disclosed_tiers": self.disclosed_tiers,
+            "detail_ok": self.detail_ok,
+            "sensitive_ok": self.sensitive_ok,
             "attestation_checks": [check.to_dict() for check in self.attestation_checks],
             "delegate_ok": self.delegate_ok,
             "errors": self.errors,
@@ -103,6 +110,29 @@ def verify_bundle(
     current_epoch = epoch_chain[-1] if chain_valid else None
     agent_id = current_epoch["agent_id"] if current_epoch else (epoch_chain[0].get("agent_id") if epoch_chain else None)
 
+    disclosed_tiers = bundle.get("disclosed_tiers") or [1]
+    detail, sensitive = bundle.get("detail"), bundle.get("sensitive")
+    if (2 in disclosed_tiers) != (detail is not None) or (3 in disclosed_tiers) != (sensitive is not None):
+        errors.append("bundle.disclosed_tiers does not match which of detail/sensitive are actually present.")
+
+    detail_ok: bool | None = None
+    if chain_valid and detail is not None:
+        try:
+            verify_detail(detail, current_epoch)
+            detail_ok = True
+        except AICError as exc:
+            detail_ok = False
+            errors.append(f"tier2 detail: {exc.code}: {exc.detail}")
+
+    sensitive_ok: bool | None = None
+    if chain_valid and sensitive is not None:
+        try:
+            verify_sensitive(sensitive, current_epoch)
+            sensitive_ok = True
+        except AICError as exc:
+            sensitive_ok = False
+            errors.append(f"tier3 sensitive: {exc.code}: {exc.detail}")
+
     live: bool | None = None
     if chain_valid:
         renewal = bundle.get("renewal")
@@ -142,17 +172,29 @@ def verify_bundle(
     delegate_ok: bool | None = None
     delegate = bundle.get("delegate")
     if delegate is not None and chain_valid:
-        try:
-            verify_delegate(delegate, current_epoch, at=moment)
-            delegate_ok = True
-        except AICError as exc:
+        if detail is None:
             delegate_ok = False
-            errors.append(f"delegate: {exc.code}: {exc.detail}")
+            errors.append("delegate: cannot verify a delegate's scope narrowing without Tier 2 detail also being disclosed.")
+        else:
+            try:
+                verify_delegate(delegate, current_epoch, detail, at=moment)
+                delegate_ok = True
+            except AICError as exc:
+                delegate_ok = False
+                errors.append(f"delegate: {exc.code}: {exc.detail}")
 
     if revoked:
         errors.append("a trusted revocation attestation is in force.")
 
-    ok = chain_valid and (live is not False or not require_live) and not revoked and delegate_ok is not False
+    ok = (
+        chain_valid
+        and (live is not False or not require_live)
+        and not revoked
+        and delegate_ok is not False
+        and detail_ok is not False
+        and sensitive_ok is not False
+        and not any("disclosed_tiers does not match" in error for error in errors)
+    )
     return VerificationResult(
         ok=ok,
         agent_id=agent_id,
@@ -161,6 +203,9 @@ def verify_bundle(
         current_epoch=current_epoch,
         live=live,
         revoked=revoked,
+        disclosed_tiers=disclosed_tiers,
+        detail_ok=detail_ok,
+        sensitive_ok=sensitive_ok,
         attestation_checks=attestation_checks,
         delegate_ok=delegate_ok,
         errors=errors,

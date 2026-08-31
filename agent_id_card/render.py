@@ -35,7 +35,12 @@ def render_text(result: VerificationResult) -> str:
         epoch = result.current_epoch
         lines.append(f"display_name  {epoch.get('display_name')}")
         lines.append(f"purpose       {epoch.get('purpose')}")
-        lines.append(f"capabilities  {', '.join(epoch.get('declared_capabilities', []))}")
+        lines.append(f"categories    {', '.join(epoch.get('capability_categories', []))}  (Tier 1)")
+    lines.append(f"disclosed     Tier {result.disclosed_tiers}")
+    if result.detail_ok is not None:
+        lines.append(f"tier2 detail  {'valid' if result.detail_ok else 'INVALID'}")
+    if result.sensitive_ok is not None:
+        lines.append(f"tier3 sensitive {'valid' if result.sensitive_ok else 'INVALID'}")
     if result.attestation_checks:
         lines.append("attestations:")
         for check in result.attestation_checks:

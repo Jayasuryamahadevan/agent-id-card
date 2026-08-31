@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import unittest
 
-from agent_id_card import AgentIdentity, AICError, create_attestation, create_genesis_epoch, verify_attestation
+from agent_id_card import AgentIdentity, AICError, create_attestation, create_detail, create_genesis_epoch, verify_attestation
 
 
 class AttestationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.subject_identity = AgentIdentity.generate()
-        self.genesis = create_genesis_epoch(self.subject_identity, "alice", "demo", ["observe."])
+        self.detail = create_detail(self.subject_identity.agent_id, 0, self.subject_identity, ["observe."])
+        self.genesis = create_genesis_epoch(self.subject_identity, "alice", "demo", self.detail)
         self.issuer = AgentIdentity.generate()
 
     def test_agent_level_attestation_survives_a_capability_update(self) -> None:
@@ -16,7 +17,8 @@ class AttestationTests(unittest.TestCase):
 
         attestation = create_attestation(self.genesis["agent_id"], self.issuer, "operator", {"contact": "ops@example.com"})
         verify_attestation(attestation, self.genesis["agent_id"])
-        updated = create_successor_epoch(self.genesis, self.subject_identity, "capability_update", declared_capabilities=["observe.", "coordinate."])
+        new_detail = create_detail(self.genesis["agent_id"], 1, self.subject_identity, ["observe.", "coordinate."])
+        updated = create_successor_epoch(self.genesis, self.subject_identity, "capability_update", new_detail)
         # Still valid: it was never scoped to one epoch.
         verify_attestation(attestation, updated["agent_id"])
 
@@ -25,7 +27,8 @@ class AttestationTests(unittest.TestCase):
 
         attestation = create_attestation(self.genesis["agent_id"], self.issuer, "endorsement", {"note": "epoch 0 behaved well"}, subject_epoch=self.genesis)
         verify_attestation(attestation, self.genesis["agent_id"], subject_epoch=self.genesis)
-        updated = create_successor_epoch(self.genesis, self.subject_identity, "capability_update")
+        new_detail = create_detail(self.genesis["agent_id"], 1, self.subject_identity, ["observe."])
+        updated = create_successor_epoch(self.genesis, self.subject_identity, "capability_update", new_detail)
         with self.assertRaises(AICError) as raised:
             verify_attestation(attestation, updated["agent_id"], subject_epoch=updated)
         self.assertEqual(raised.exception.code, "attestation.epoch_mismatch")
