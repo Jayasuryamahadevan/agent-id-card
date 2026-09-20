@@ -107,3 +107,9 @@ report = harness.reconcile(auto_apply=True)  # diffs my_adapter.capabilities() a
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).
+
+## Ecosystem link
+
+[![RustChain bounty participant](https://img.shields.io/badge/RustChain-bounty%20participant-orange)](https://rustchain.org)
+
+This badge is included for participation in the RustChain ecosystem bounty program; it does not imply that Agent ID Card depends on RustChain.
