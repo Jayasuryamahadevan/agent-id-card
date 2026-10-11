@@ -74,8 +74,13 @@ exists versus what's merely withheld.
 
 ## Quick start (Python reference implementation)
 
+Requires Python 3.11 or newer, Git, and `uv`. The commands below use a
+POSIX shell and install the test and development extras from this checkout.
+
 ```bash
-uv venv .venv && source .venv/bin/activate
+git clone https://github.com/Jayasuryamahadevan/agent-id-card.git
+cd agent-id-card
+uv venv --python 3.11 .venv && source .venv/bin/activate
 uv pip install -e ".[test,dev]"
 ruff check agent_id_card tests
 python3 -m unittest discover -s tests -v
